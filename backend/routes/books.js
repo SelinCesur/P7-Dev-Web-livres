@@ -9,11 +9,12 @@ const multer = require('../middleware/multer-config');
 // GET / (route pour afficher tous les livres sans authentification)
 router.get('/', bookCtrl.getAllBooks);
 
+// GET /bestrating (route pour afficher les livres les mieux notés sans authentification)
+// Cette méthode doit être placée avant la route /:id pour éviter les confusions
+router.get('/bestrating', bookCtrl.getAllBooks);
+
 // GET /:id (route pour afficher un livre spécifique sans authentification)
 router.get('/:id', bookCtrl.getOneBook);
-
-// GET /bestrating (route pour afficher les livres les mieux notés sans authentification)
-router.get('/bestrating', bookCtrl.getBestRating);
 
 // POST
 router.post('/', auth, multer, bookCtrl.createBook);

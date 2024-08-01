@@ -1,3 +1,4 @@
+const { log } = require('console');
 const Book = require('../models/book');
 const fs = require('fs');
 
@@ -95,22 +96,52 @@ exports.getBestRating = (req, res, next) => {
 };
 
 exports.rateBook = (req, res, next) => {
-  Book.findOne({ _id: req.params.id })
+  const bookId = req.params.id;
+  const rating = JSON.parse(req.body.rating);
+
+  console.log(rating);
+
+  // On lui donne l'user id de l'utilisateur authentifié
+  const rate = {
+    userId: req.auth.userId,
+    grade: rating,
+  };
+
+  Book.findOne({ _id: bookId })
     .then((book) => {
-      const rating = {
-        userId: req.auth.userId,
-        grade: req.body.grade,
-      };
-      book.ratings.push(rating);
-      let totalRating = 0;
+      // console.log(book);
+
+      // On vérifie si l'utilisateur a déjà noté le livre
+      const noteQuiExiste = book.ratings.filter(
+        (rating) => rating.userId === rate.userId
+      );
+
+      // Si l'utilisateur a déjà noté le livre, on met à jour sa note
+      if (noteQuiExiste.length > 0) {
+        const index = book.ratings.findIndex(
+          (rating) => rating.userId === rate.userId
+        );
+        book.ratings[index].grade = rate.grade;
+      } else {
+        // Sinon, on ajoute sa nouvelle note
+        book.ratings.push(rate);
+      }
+      console.log(book);
+
+      // On calcule la nouvelle note moyenne
+      let sum = 0;
       book.ratings.forEach((rating) => {
-        totalRating += rating.grade;
+        sum += rating.grade;
       });
-      book.averageRating = totalRating / book.ratings.length;
+      book.averageRating = sum / book.ratings.length;
+
+      // On sauvegarde le livre et on renvoie le livre mis à jour
       book
         .save()
-        .then(() => res.status(201).json({ message: 'Rating added!' }))
+        .then(() => res.status(200).json(book))
         .catch((error) => res.status(400).json({ error }));
     })
-    .catch((error) => res.status(404).json({ error }));
+    .catch((error) => {
+      res.status(400).json({ error });
+    });
 };
