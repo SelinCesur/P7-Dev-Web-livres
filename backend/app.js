@@ -28,6 +28,7 @@ app.use((req, res, next) => {
   );
   next();
 });
+// Permet de décalrer le dossier images de manières statique, ce dossier contiendra des images et qu'on pourra y accéder de manière directe
 app.use('/images', express.static(path.join(__dirname, 'images')));
 
 // La liste des routes à utiliser
