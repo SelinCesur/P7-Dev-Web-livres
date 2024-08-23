@@ -1,5 +1,6 @@
 const Book = require('../models/book');
 const fs = require('fs');
+const sharp = require('sharp');
 
 exports.getAllBooks = (req, res, next) => {
   Book.find()
@@ -13,7 +14,7 @@ exports.getOneBook = (req, res, next) => {
     .catch((error) => res.status(404).json({ error }));
 };
 
-exports.createBook = (req, res, next) => {
+exports.createBook = async (req, res, next) => {
   const bookObject = JSON.parse(req.body.book);
 
   // On supprime l'id et l'userId envoyés par le client
@@ -28,21 +29,35 @@ exports.createBook = (req, res, next) => {
     }`,
   });
 
+  // On optimise l'image avec sharp et on la redimensionne en 200px de large et on la convertit en jpeg avec une qualité de 80%
+  await optimisationImage(req.file);
+
   book
     .save()
     .then(() => res.status(201).json({ message: 'Book created!' }))
     .catch((error) => res.status(400).json({ error }));
 };
 
-exports.modifyBook = (req, res, next) => {
-  const bookObject = req.file
-    ? {
-        ...JSON.parse(req.body.book),
-        imageUrl: `${req.protocol}://${req.get('host')}/images/${
-          req.file.filename
-        }`,
-      }
-    : { ...req.body };
+exports.modifyBook = async (req, res, next) => {
+  let bookObject;
+  if (req.file) {
+    bookObject = {
+      ...JSON.parse(req.body.book),
+      imageUrl: `${req.protocol}://${req.get('host')}/images/${
+        req.file.filename
+      }`,
+    };
+
+    // On supprime l'ancienne image
+    const ancienneImage = await Book.findOne({ _id: req.params.id });
+    const ancienneImageFileName = ancienneImage.imageUrl.split('/images/')[1];
+    fs.unlink(`images/${ancienneImageFileName}`, () => {});
+
+    // On optimise l'image avec sharp et on la redimensionne en 200px de large et on la convertit en jpeg avec une qualité de 80%
+    await optimisationImage(req.file);
+  } else {
+    bookObject = { ...req.body };
+  }
 
   delete bookObject._userId;
 
@@ -142,5 +157,24 @@ exports.rateBook = (req, res, next) => {
     })
     .catch((error) => {
       res.status(400).json({ error });
+    });
+};
+
+// Fonction pour optimiser l'image
+const optimisationImage = (file) => {
+  sharp(file.path)
+    .resize({ width: 200 })
+    .jpeg({ quality: 80 })
+    .toBuffer(function (err, buffer) {
+      if (err) {
+        console.log(err);
+      } else {
+        // On écrit utiliser fs.writeFile pour écrire le buffer dans le fichier
+        fs.writeFile(file.path, buffer, function (err) {
+          if (err) {
+            console.log(err);
+          }
+        });
+      }
     });
 };
